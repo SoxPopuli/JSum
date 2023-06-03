@@ -1,4 +1,4 @@
-module internal Lexer
+module internal JSum.Lexer
 
 type Token =
     | OpenBrace
@@ -11,6 +11,8 @@ type Token =
     | Number of double
     | Bool of bool
     | Null
+    | Whitespace
+
 
 let get_token (input: string) = 
     failwith "todo"
