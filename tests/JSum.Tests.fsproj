@@ -9,6 +9,8 @@
     <!-- Json Sample Files -->
     <Compile Include="Samples.fs" /> 
 
+    <Compile Include="ReaderTests.fs" />
+
     <Compile Include="Program.fs" />
   </ItemGroup>
 

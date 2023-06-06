@@ -3,11 +3,12 @@
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarningsAsErrors>FS0025</WarningsAsErrors>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Json.fs" />
     <Compile Include="Lexer.fs" />
+    <Compile Include="Json.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 
