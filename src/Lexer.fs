@@ -1,8 +1,8 @@
-module JSum.Lexer
+module internal JSum.Lexer
 
 open System.Collections.Generic
 
-type Token =
+type internal Token =
     | OpenBrace
     | CloseBrace
     | OpenBracket
@@ -13,70 +13,9 @@ type Token =
     | Number of double
     | Bool of bool
     | Null
-    | Whitespace
     | Eof
-    | Error of string
 
-type Reader =
-    { input: string
-      mutable position: int
-
-    }
-
-    static member create input = { input = input; position = 0 }
-
-    //Characters left to read from input
-    member this.remaining() = this.input.Length - this.position
-
-    member this.getChar() =
-        if this.remaining () > 0 then
-            let c = this.input[this.position]
-            this.position <- this.position + 1
-            Some c
-        else
-            None
-
-    member this.peek(n: int) =
-        let rem = this.remaining ()
-
-        if n > rem then
-            None
-        else
-            let pos = this.position
-            let s = this.input[pos .. pos + n - 1]
-            Some s
-
-    member this.take(n: int) =
-        let rem = this.remaining ()
-
-        if n > rem then
-            None
-        else
-            let pos = this.position
-            let s = this.input[pos .. pos + n - 1]
-
-            this.position <- this.position + n
-            Some s
-
-    member this.skip(n: int) = this.position <- this.position + n
-
-    member this.takeWhile(pred: char -> bool) =
-        let rec inner (ch: char option) (pred: char -> bool) =
-            seq {
-                match ch with
-                | Some c ->
-                    if not <| pred c then
-                        this.position <- this.position - 1
-                    else
-                        yield c
-                        yield! inner (this.getChar ()) pred
-
-                | None -> ()
-            }
-
-        inner (this.getChar ()) pred |> Seq.fold (fun acc s -> acc + s.ToString()) ""
-
-let tryParseDouble (input: string) : double option =
+let private tryParseDouble (input: string) : double option =
     try
         Some <| System.Double.Parse input
     with _ ->
@@ -85,66 +24,100 @@ let tryParseDouble (input: string) : double option =
 let private digitChars =
     HashSet [ '0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9'; '.'; 'e'; 'E'; '+' ]
 
-let getTokens (input: string) =
-    let reader = Reader.create input
+let private getString (chars: char array) (i: int) =
+    let rec loop (chars: char array) (i: int) (s: System.Text.StringBuilder) =
+        match chars[i] with
+        | '"' -> Some(i + 1, s.ToString())
+        | '\000' -> None
+        | ch ->
+            let struct (ch, increment) =
+                if ch = '\\' then //Escape next character
+                    struct (chars[i + 1], 2)
+                else
+                    struct (ch, 1)
 
-    let rec inner (reader: Reader) (ch: char option) : Token seq =
-        seq {
-            match ch with
-            | None -> ()
-            | Some ch ->
-                yield
-                    match ch with
-                    | '{' -> OpenBrace
-                    | '}' -> CloseBrace
-                    | '[' -> OpenBracket
-                    | ']' -> CloseBracket
-                    | ',' -> Comma
-                    | ':' -> Colon
-                    | ' '
-                    | '\n'
-                    | '\r'
-                    | '\t' -> Whitespace //Skip Whitespace
+            s.Append ch |> ignore
+            loop chars (i + increment) s
 
-                    | 't' ->
-                        let rest = reader.take (3)
+    loop chars i (System.Text.StringBuilder())
 
-                        if rest = Some "rue" then
-                            Bool true
-                        else
-                            Error $"Unexpected literal t{rest} at {reader.position}"
+let private getNumber (chars: char array) (i: int) =
+    let rec loop (chars: char array) (i: int) (s: System.Text.StringBuilder) =
+        match chars[i] with
+        | c when digitChars.Contains c ->
+            s.Append c |> ignore
+            loop chars (i + 1) s
+        | _ -> (i, s.ToString())
 
-                    | 'f' ->
-                        let rest = reader.take (4)
+    loop chars i (System.Text.StringBuilder())
 
-                        if rest = Some "alse" then
-                            Bool false
-                        else
-                            Error $"Unexpected literal f{rest} at {reader.position}"
+let private peekNext (chars: char array) (i: int) (expected: char array) ifTrue ifFalse =
+    let slice = chars[i .. i + (expected.Length - 1)]
 
-                    | 'n' ->
-                        let rest = reader.take (3)
+    if slice = expected then
+        ifTrue slice
+    else
+        let rest = Array.fold (fun acc s -> acc + s.ToString()) "" slice
+        ifFalse rest
 
-                        if rest = Some "ull" then
-                            Null
-                        else
-                            Error $"Unexpected literal n{rest} at {reader.position}"
+let internal getTokens (input: string) =
+    //Null terminate char array to check if array bounds exceeded
+    let chars = (input + '\000'.ToString()).ToCharArray()
 
-                    | digit when digitChars.Contains ch ->
-                        let rest = reader.takeWhile (fun c -> digitChars.Contains c)
-                        let num = digit.ToString() + rest
+    // returns new index + token
+    let rec get (chars: char array) (i: int) : Result<(int * Token), string> =
+        match chars[i] with
+        | ' '
+        | '\n'
+        | '\r'
+        | '\t' ->
+            //Skip whitespace
+            get chars (i + 1)
 
-                        match tryParseDouble num with
-                        | Some d -> Number d
-                        | None -> Error $"Invalid number: {num}"
+        | '\000' -> Ok(-1, Eof)
+        | '{' -> Ok(i + 1, OpenBrace)
+        | '}' -> Ok(i + 1, CloseBrace)
+        | '[' -> Ok(i + 1, OpenBracket)
+        | ']' -> Ok(i + 1, CloseBracket)
+        | ',' -> Ok(i + 1, Comma)
+        | ':' -> Ok(i + 1, Colon)
+        | 't' ->
+            peekNext chars (i + 1) ("rue".ToCharArray())
+            <| fun slice -> Ok(i + slice.Length + 1, Bool true)
+            <| fun slice -> Error $"Unexpected literal t{slice} at {i}"
+        | 'f' ->
+            peekNext chars (i + 1) ("alse".ToCharArray())
+            <| fun slice -> Ok(i + slice.Length + 1, Bool false)
+            <| fun slice -> Error $"Unexpected literal f{slice} at {i}"
+        | 'n' ->
+            peekNext chars (i + 1) ("ull".ToCharArray())
+            <| fun slice -> Ok(i + slice.Length + 1, Null)
+            <| fun slice -> Error $"Unexpected literal n{slice} at {i}"
+        | '"' ->
+            match getString chars (i + 1) with
+            | Some(j, s) -> Ok(j, String s)
+            | None -> Error $"Unclosed string literal starting at {i}"
+        | c when digitChars.Contains c ->
+            let j, s = getNumber chars i
 
-                    | '"' ->
-                        let s = reader.takeWhile (fun c -> c <> '"')
-                        reader.skip 1 //Skip closing quote
-                        String <| s
-                    | c -> Error $"Unexpected character {c} at {reader.position}"
+            match tryParseDouble s with
+            | Some d -> Ok(j, Number d)
+            | None -> Error $"Could not convert {s} to number"
+        | c -> Error $"Unexpected character {c} at position {i}"
 
-                yield! inner reader (reader.getChar ())
-        }
 
-    inner reader (reader.getChar ())
+    let rec loop (chars: char array) (i: int) (tokens: Token list) =
+        if i = chars.Length then
+            Ok tokens
+        else
+            let token = get chars i
+
+            match token with
+            | Error e -> Error e
+            | Ok(j, t) ->
+                match t with
+                | Eof -> Ok tokens
+                | _ -> loop chars j (t :: tokens)
+
+
+    loop chars 0 [] |> Result.map (fun l -> List.rev l |> List.toArray)

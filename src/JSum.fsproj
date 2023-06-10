@@ -7,6 +7,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+      <_Parameter1>$(AssemblyName).Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Errors.fs" />
     <Compile Include="Lexer.fs" />
     <Compile Include="Json.fs" />
     <Compile Include="Library.fs" />

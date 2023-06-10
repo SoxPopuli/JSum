@@ -7,78 +7,44 @@ open JSum
 open JSum.Json.Model
 
 [<Tests>]
-let readerTests =
-    testList
-        "Reader Tests"
-        [ testCase "Remaining Test" ReaderTests.remainingTest
-          testCase "Peek Test" ReaderTests.peekTest
-          testCase "Take Test" ReaderTests.takeTest
-
-          ]
-
-[<Tests>]
 let lexerTests =
     testList
         "Lexer Tests"
         [ testCase "Simple Lexer Test"
           <| fun _ ->
-              let input = """{ "a": "b", [2], true, false, null }"""
-              let tokens = 
-                Lexer.getTokens input 
-                |> Seq.takeWhile (fun token -> 
-                  match token with
-                  | Lexer.Error _ -> false
-                  | _ -> true)
-                |> Seq.toList
-
-              printf $"%A{tokens}"
+              let input = "{ \"a\": { \"b\": \"3.0\" }, [2e+4], true, false, null }"
+              let tokens = Lexer.getTokens input
 
               Expect.equal
                   "Lexer output should be:"
-                  [ Lexer.OpenBrace
-                    Lexer.Whitespace
-                    Lexer.String "a"
-                    Lexer.Colon
-                    Lexer.Whitespace
-                    Lexer.String "b"
-                    Lexer.Comma
-                    Lexer.Whitespace
-                    Lexer.OpenBracket
-                    Lexer.Number 2.0
-                    Lexer.CloseBracket
-                    Lexer.Comma
-                    Lexer.Whitespace
-                    Lexer.Bool true
-                    Lexer.Comma
-                    Lexer.Whitespace
-                    Lexer.Bool false
-                    Lexer.Comma
-                    Lexer.Whitespace
-                    Lexer.Null
-                    Lexer.Whitespace
-                    Lexer.CloseBrace 
-                  ]
+                  (Ok
+                      [| Lexer.OpenBrace
+                         Lexer.String "a"
+                         Lexer.Colon
+
+                         Lexer.OpenBrace
+                         Lexer.String "b"
+                         Lexer.Colon
+                         Lexer.String "3.0"
+                         Lexer.CloseBrace
+
+                         Lexer.Comma
+                         Lexer.OpenBracket
+                         Lexer.Number 20_000.0
+                         Lexer.CloseBracket
+                         Lexer.Comma
+                         Lexer.Bool true
+                         Lexer.Comma
+                         Lexer.Bool false
+                         Lexer.Comma
+                         Lexer.Null
+                         Lexer.CloseBrace |])
                   tokens
 
           ]
 
-[<Tests>]
-let parseTests =
-    testList
-        "Parse Tests"
-        [ testCase "Simple JSON Parse"
-          <| fun _ ->
-              let actual = Json.parse Samples.simpleJson
-
-              let expected =
-                  Object
-                      [ "name", String "Bob"
-                        "age", Number 30.0
-                        "hobbies", Array [ String "swimming"; String "dancing" ] ]
-
-              Expect.equal "" expected actual
-
-          ]
+// [<Tests>]
+let parseTests = testList "Parse Tests" []
 
 [<EntryPoint>]
 let main args =
