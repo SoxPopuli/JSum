@@ -10,22 +10,53 @@ module Model =
         | String of string
         | Array of Json list
         | Object of (string * Json) list
+    and RootJson =
+        | Null
+        | Bool of bool
+        | Number of double
+        | String of string
+        | Array of Json list
+        | Object of Json list
 
 open Model
 
-type private TempObject = TempObject of (string * Json) list
+type Result<'O, 'E> with
 
-let private parseTokens (tokens: Lexer.Token array) =
+    member this.map f = Result.map f this
+    member this.bind f = Result.bind f this
+
+type Option<'T> with
+
+    member this.map f = Option.map f this
+
+type private TempObject() =
+    [<DefaultValue>]
+    val mutable key: string option
+
+    [<DefaultValue>]
+    val mutable items: List<Json>
+
+    member this.Reset() =
+        this.key <- None
+        this.items.Clear()
+
+let private parseObject (tokens: Lexer.Token array) (i: int) =
+    let rec loop (j: int) =
+        failwith "todo"
+
+    failwith "todo"
+
+let private parseTokens (tokens: Lexer.Token array): RootJson =
+    let stringBuffer = Stack<string>()
     let objectStack = Stack<TempObject>()
-    let arrayQueue = Queue<Json>()
 
     let rec loop (tokens: Lexer.Token array) (i: int) =
         match tokens[i] with
-        | Lexer.OpenBrace ->
+        | Lexer.OpenBrace -> 
             failwith "todo"
-        | Lexer.CloseBrace ->
+        | Lexer.CloseBrace -> 
             failwith "todo"
-        | Lexer.OpenBracket ->
+        | Lexer.OpenBracket -> 
             failwith "todo"
         | Lexer.CloseBracket ->
             failwith "todo"
@@ -41,16 +72,13 @@ let private parseTokens (tokens: Lexer.Token array) =
             failwith "todo"
         | Lexer.Null ->
             failwith "todo"
-        | Lexer.Eof ->
-            failwith "todo"
-
-
-        failwith "todo"
+        | Lexer.Eof -> 
+            tokens
 
 
 
     failwith "todo"
 
-let parse (input: string): Result<Json, string> =
+let parse (input: string) : Result<Json, string> =
     let tokens = Lexer.getTokens input
     Result.map parseTokens tokens

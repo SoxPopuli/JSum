@@ -111,7 +111,6 @@ let internal getTokens (input: string) =
             Ok tokens
         else
             let token = get chars i
-
             match token with
             | Error e -> Error e
             | Ok(j, t) ->
